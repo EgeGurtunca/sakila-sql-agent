@@ -4,7 +4,7 @@ RULES = """Rules:
 - SQLite dialect. Use only the tables and columns in the schema above.
 - Return exactly ONE SELECT (or WITH ... SELECT) statement. No comments, no explanation, no markdown fences.
 - Never modify data.
-- Add LIMIT 50 unless the question asks for a single aggregate value.
+- Only add a LIMIT when the question asks for the top/first N; otherwise return all matching rows.
 - Money columns are in dollars; dates are TEXT in 'YYYY-MM-DD HH:MM:SS' form (use date()/strftime()).
 - Prefer readable column aliases (e.g. total_revenue, film_title)."""
 

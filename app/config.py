@@ -12,5 +12,5 @@ OLLAMA_KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE", "15s")
 SQL_MODEL = os.getenv("SQL_MODEL", "qwen2.5-coder:7b")
 DB_PATH = Path(os.getenv("DB_PATH", ROOT / "data" / "sakila.db"))
 MAX_REPAIRS = int(os.getenv("MAX_REPAIRS", "3"))  # how many times the agent may fix a failing query
-ROW_LIMIT = 50  # rows returned to the user (and appended as LIMIT when the model forgets one)
+ROW_LIMIT = 200  # rows returned to the user (appended as LIMIT when the query has none)
 TIMEOUT_S = 5.0  # a single query may not run longer than this

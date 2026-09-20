@@ -2,7 +2,7 @@
 {"id": 2, "question": "Kaç müşteri var?", "gold_sql": "SELECT count(*) FROM customer", "tags": ["count", "tr"]}
 {"id": 3, "question": "How many customers are active?", "gold_sql": "SELECT count(*) FROM customer WHERE active = 1", "tags": ["count", "filter"]}
 {"id": 4, "question": "What is the length of the longest film, in minutes?", "gold_sql": "SELECT max(length) FROM film", "tags": ["topn"]}
-{"id": 5, "question": "List the 5 most expensive films to rent (title and rental rate).", "gold_sql": "SELECT title, rental_rate FROM film ORDER BY rental_rate DESC, title LIMIT 5", "tags": ["topn"]}
+{"id": 5, "question": "What are the distinct rental rates, from highest to lowest?", "gold_sql": "SELECT DISTINCT rental_rate FROM film ORDER BY rental_rate DESC", "tags": ["distinct"]}
 {"id": 6, "question": "How many films are rated PG-13?", "gold_sql": "SELECT count(*) FROM film WHERE rating = 'PG-13'", "tags": ["count", "filter"]}
 {"id": 7, "question": "What is the average film length?", "gold_sql": "SELECT avg(length) FROM film", "tags": ["agg"]}
 {"id": 8, "question": "Toplam ödeme tutarı nedir?", "gold_sql": "SELECT sum(amount) FROM payment", "tags": ["agg", "tr"]}

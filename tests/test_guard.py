@@ -8,7 +8,7 @@ def test_strips_fences_comments_and_semicolon():
 
 
 def test_adds_limit_when_missing():
-    assert check("SELECT title FROM film").endswith("LIMIT 50")
+    assert check("SELECT title FROM film").endswith("LIMIT 200")
 
 
 def test_keeps_existing_limit():
