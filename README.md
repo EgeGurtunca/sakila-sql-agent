@@ -14,7 +14,7 @@ This is the third project in a series where I'm working through the LLM stack on
 one answers questions from a database, which means the model has to *act* — write a query, see it fail,
 try again — and that loop is the whole point.
 
-**Stack:** Python 3.12 · LangGraph · Ollama (`qwen2.5-coder:7b`) · SQLite · FastAPI · pytest
+**Stack:** Python 3.12 · LangGraph · Ollama (`qwen2.5-coder:7b`) · SQLite · FastAPI · pytest · Docker
 
 ## Running it
 
@@ -27,11 +27,14 @@ uvicorn app.api:app --reload                                      # http://local
 `data/sakila.db` is the SQLite port of MySQL's Sakila sample database (16 tables, 1000 films, 16k rentals).
 
 ```
-POST /ask   {"question": "..."}
-        ->  {"answer", "sql", "columns", "rows", "truncated", "attempts", "error", "trace": [...], "latency_ms"}
+POST /ask      {"question": "..."}
+           ->  {"answer", "sql", "columns", "rows", "truncated", "attempts", "error", "trace": [...], "latency_ms"}
+POST /approve  {"question", "sql"}   remember this pair as a future example (see few-shot memory below)
 GET  /schema
-GET  /       the page
+GET  /         the page
 ```
+
+Or `docker compose up` — the app runs in a container, Ollama stays on the host so it keeps the GPU.
 
 ## How it works
 
@@ -52,6 +55,13 @@ the DDL doesn't say out loud: the foreign-key graph written as join paths (`paym
 `PRAGMA foreign_key_list` / `DISTINCT` counts, so they work for any SQLite database, and both exist because
 the first eval run showed the model inventing columns that live one join away and guessing `active = 'Y'`.
 `SCHEMA_HINTS=0` turns them off — the eval compares both.
+
+**Few-shot memory** ([app/examples.py](app/examples.py)). A bank of (question, SQL) pairs the agent trusts:
+ten hand-written seeds, plus whatever a user marks "✓ correct" on the page (`POST /approve`, guarded — nothing
+the guard wouldn't run gets banked). For a new question the three most similar banked questions go into the
+prompt as worked examples. Similarity is word-overlap (Jaccard on 5-letter prefixes, which also catches
+Turkish suffixes); no embedding model, no network. The seeds are deliberately disjoint from the eval
+questions.
 
 **Guard** ([app/guard.py](app/guard.py)). Model output is untrusted input. Exactly one statement, it must start
 with `SELECT` or `WITH`, no `DROP/DELETE/PRAGMA/ATTACH/...` anywhere, comments stripped first (so a comment
@@ -119,22 +129,21 @@ than 50 correct rows. Eval sets test the tester first.
 pytest
 ```
 
-26 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
+33 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
 on the real database, the graph with a fake model (happy path, repair after an error, repair after a guard
 rejection, giving up), result comparison, the API.
 
 ## What's next
 
-- Few-shot memory: approved (question, SQL) pairs retrieved as examples
 - Schema retrieval for databases too large to put in the prompt
 - Clarification turn for ambiguous questions instead of guessing
 
 ## Layout
 
 ```
-app/        config, llm (Ollama + retry), db (read-only, timeout), guard, prompts, agent (LangGraph), api
+app/        config, llm (Ollama + retry), db (read-only, timeout, hints), guard, prompts, examples, agent (LangGraph), api
 static/     the page: question → SQL → table → trace
 eval/       questions.jsonl (gold SQL), run_eval.py, results/
 tests/      pytest
-data/       sakila.db
+data/       sakila.db, examples.jsonl (few-shot bank)
 ```

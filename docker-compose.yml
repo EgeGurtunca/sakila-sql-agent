@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports: ["8000:8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434   # Ollama stays on the host (GPU)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/examples.jsonl:/srv/data/examples.jsonl   # approved examples persist across restarts
