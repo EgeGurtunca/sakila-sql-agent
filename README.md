@@ -4,22 +4,22 @@
 
 Ask a question about the Sakila film-rental database in plain English or Turkish; the agent writes SQL, runs
 it against a read-only copy, reads the error if it got something wrong, fixes it, and hands you the table and
-a one-sentence answer. Fully local — Ollama, no API keys.
+a one-sentence answer. Fully local: Ollama, no API keys.
 
 <!-- docs/demo.gif -->
 
 This is the third project in a series where I'm working through the LLM stack one layer at a time
 (structured output → retrieval → **agent** → multi-tool system → own model). The previous one,
 [bau-mevzuat-rag](https://github.com/EgeGurtunca/bau-mevzuat-rag), answered questions from documents; this
-one answers questions from a database, which means the model has to *act* — write a query, see it fail,
-try again — and that loop is the whole point.
+one answers questions from a database, which means the model has to *act*: write a query, see it fail,
+try again. That loop is the whole point.
 
 **Stack:** Python 3.12 · LangGraph · Ollama (`qwen2.5-coder:7b`) · SQLite · FastAPI · pytest · Docker
 
 ## Running it
 
 ```bash
-ollama pull qwen2.5-coder:7b                                      # https://ollama.com — 4.7 GB
+ollama pull qwen2.5-coder:7b                                      # https://ollama.com, 4.7 GB
 python -m venv .venv && .venv/Scripts/pip install -e ".[dev]"   # Linux/mac: .venv/bin/pip
 uvicorn app.api:app --reload                                      # http://localhost:8000
 ```
@@ -34,7 +34,7 @@ GET  /schema
 GET  /         the page
 ```
 
-Or `docker compose up` — the app runs in a container, Ollama stays on the host so it keeps the GPU.
+Or `docker compose up`: the app runs in a container, Ollama stays on the host so it keeps the GPU.
 
 ## How it works
 
@@ -45,7 +45,7 @@ question ──► generate ──► guard ──ok──► execute ──ok�
 ```
 
 The loop is a LangGraph `StateGraph` ([app/agent.py](app/agent.py)). I use LangGraph only for the state
-machine — the model is called through Ollama's HTTP API directly, so every prompt is a string I can read in
+machine. The model is called through Ollama's HTTP API directly, so every prompt is a string I can read in
 [app/prompts.py](app/prompts.py) rather than something a wrapper assembles for me.
 
 **What the model sees** ([app/db.py](app/db.py) `schema_text`). The `CREATE TABLE` statements, plus two things
@@ -54,10 +54,10 @@ the DDL doesn't say out loud: the foreign-key graph written as join paths (`paym
 (`customer.active: '0', '1'`, `film.rating: 'G', 'NC-17', 'PG', 'PG-13', 'R'`). Both come straight from
 `PRAGMA foreign_key_list` / `DISTINCT` counts, so they work for any SQLite database, and both exist because
 the first eval run showed the model inventing columns that live one join away and guessing `active = 'Y'`.
-`SCHEMA_HINTS=0` turns them off — the eval compares both.
+`SCHEMA_HINTS=0` turns them off; the eval compares both.
 
 **Few-shot memory** ([app/examples.py](app/examples.py)). A bank of (question, SQL) pairs the agent trusts:
-ten hand-written seeds, plus whatever a user marks "✓ correct" on the page (`POST /approve`, guarded — nothing
+ten hand-written seeds, plus whatever a user marks "✓ correct" on the page (`POST /approve`, guarded: nothing
 the guard wouldn't run gets banked). For a new question the three most similar banked questions go into the
 prompt as worked examples. Similarity is word-overlap (Jaccard on 5-letter prefixes, which also catches
 Turkish suffixes); no embedding model, no network. The seeds are deliberately disjoint from the eval
@@ -69,7 +69,7 @@ can't hide a second statement), and a `LIMIT` is appended when the query has non
 back to the model exactly like a database error, so "Delete all customers" becomes three polite refusals and
 a give-up rather than a crash.
 
-**Execution** ([app/db.py](app/db.py)). The connection is opened with `?mode=ro` — even if the guard were
+**Execution** ([app/db.py](app/db.py)). The connection is opened with `?mode=ro`, so even if the guard were
 bypassed, SQLite itself refuses writes. A progress handler aborts any query running longer than 5 s, and
 results are capped at 200 rows with a `truncated` flag.
 
@@ -102,10 +102,10 @@ _40 questions (33 English, 7 Turkish): counts, 2–4-table joins, aggregations, 
 
 Two layers, two different kinds of mistake:
 
-- **The repair loop** fixes the cheap kind — a MySQL function that doesn't exist in SQLite
+- **The repair loop** fixes the cheap kind: a MySQL function that doesn't exist in SQLite
   (`DATE_FORMAT` → `strftime`), a column referenced through the wrong alias. Anything that produces an error
   message. +5 points for ~70 ms.
-- **Schema hints** fix the expensive kind — the mistakes that *don't* error. `WHERE active = 'Y'` ran fine and
+- **Schema hints** fix the expensive kind, the mistakes that *don't* error. `WHERE active = 'Y'` ran fine and
   returned 0; `film.film_id = payment.rental_id` ran fine and returned a confident wrong number;
   `city.country` and `rental.film_id` sent the repair loop guessing column names for three rounds. Telling
   the model the join paths and the real values of `active` removed all of them. +7.5 points, and slightly
@@ -117,7 +117,7 @@ time. A few-shot example of a similar query is the obvious next thing to try.
 
 **Code model vs general model**, same best configuration: `qwen2.5:7b` gets 0.925 (3 failures, 0.95 s)
 against the coder's 0.975. The general model still guesses `active = 'Y'` even with the value list in
-front of it, and writes `address.city` — the same "one join away" mistake the coder had stopped making.
+front of it, and writes `address.city`, the same "one join away" mistake the coder had stopped making.
 
 The first eval run also caught two bugs in my own harness: my prompt said "add LIMIT 50", so the model
 added `LIMIT 50` to *"the 5 most expensive films"*; and my 50-row output cap failed every question with more
