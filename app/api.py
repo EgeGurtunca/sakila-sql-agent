@@ -15,7 +15,7 @@ schema = ""
 async def lifespan(_app: FastAPI):
     global schema
     llm.require_ollama()
-    schema = db.schema_ddl()
+    schema = db.schema_text()
     yield
 
 

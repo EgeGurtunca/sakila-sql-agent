@@ -14,3 +14,4 @@ DB_PATH = Path(os.getenv("DB_PATH", ROOT / "data" / "sakila.db"))
 MAX_REPAIRS = int(os.getenv("MAX_REPAIRS", "3"))  # how many times the agent may fix a failing query
 ROW_LIMIT = 200  # rows returned to the user (appended as LIMIT when the query has none)
 TIMEOUT_S = 5.0  # a single query may not run longer than this
+SCHEMA_HINTS = os.getenv("SCHEMA_HINTS", "1") == "1"  # add join paths + enum-like values to the prompt

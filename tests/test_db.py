@@ -28,3 +28,10 @@ def test_connection_is_read_only():
     import sqlite3
     with pytest.raises(sqlite3.OperationalError):
         db.run("DELETE FROM film")
+
+
+def test_hints_list_join_paths_and_enum_values():
+    h = db.hints()
+    assert "payment.staff_id -> staff.staff_id" in h and "rental.inventory_id -> inventory.inventory_id" in h
+    assert "customer.active: '0', '1'" in h and "film.rating: 'G', 'NC-17', 'PG', 'PG-13', 'R'" in h
+    assert "last_update" not in h and "password" not in h

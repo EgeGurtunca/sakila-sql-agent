@@ -43,6 +43,14 @@ The loop is a LangGraph `StateGraph` ([app/agent.py](app/agent.py)). I use LangG
 machine — the model is called through Ollama's HTTP API directly, so every prompt is a string I can read in
 [app/prompts.py](app/prompts.py) rather than something a wrapper assembles for me.
 
+**What the model sees** ([app/db.py](app/db.py) `schema_text`). The `CREATE TABLE` statements, plus two things
+the DDL doesn't say out loud: the foreign-key graph written as join paths (`payment.staff_id -> staff.staff_id`,
+`rental.inventory_id -> inventory.inventory_id`) and the actual values of enum-like columns
+(`customer.active: '0', '1'`, `film.rating: 'G', 'NC-17', 'PG', 'PG-13', 'R'`). Both come straight from
+`PRAGMA foreign_key_list` / `DISTINCT` counts, so they work for any SQLite database, and both exist because
+the first eval run showed the model inventing columns that live one join away and guessing `active = 'Y'`.
+`SCHEMA_HINTS=0` turns them off — the eval compares both.
+
 **Guard** ([app/guard.py](app/guard.py)). Model output is untrusted input. Exactly one statement, it must start
 with `SELECT` or `WITH`, no `DROP/DELETE/PRAGMA/ATTACH/...` anywhere, comments stripped first (so a comment
 can't hide a second statement), and a `LIMIT` is appended when the query has none. A guard rejection is fed
@@ -67,30 +75,37 @@ is meaningless (there are a hundred correct spellings of most queries). So: 40 h
 gold SQL, run both, compare result sets as order-insensitive multisets.
 
 ```bash
-python -m eval.run_eval --repairs 0,3
+python -m eval.run_eval --repairs 0,3 --hints 0,1
 ```
 
-| config | execution accuracy | gave up | mean repairs | mean latency |
-|---|---|---|---|---|
-| no repair (single shot) | 0.850 | 4 | 0.00 | 0.73 s |
-| up to 3 repairs | **0.900** | 2 | 0.20 | 0.80 s |
+| schema hints | repairs | execution accuracy | gave up | mean repairs | mean latency |
+|---|---|---|---|---|---|
+| off | 0 | 0.850 | 4 | 0.00 | 0.81 s |
+| off | 3 | 0.900 | 2 | 0.20 | 0.85 s |
+| on | 0 | 0.925 | 3 | 0.00 | 0.73 s |
+| on | 3 | **0.975** | 1 | 0.12 | 0.84 s |
 
 _40 questions (33 English, 7 Turkish): counts, 2–4-table joins, aggregations, date filters, top-N, `LIKE`.
 `qwen2.5-coder:7b`, RTX 4090 laptop. Raw results and every failure in `eval/results/`._
 
-The repair loop buys 5 points for 70 ms. What it fixes is the cheap kind of mistake: a MySQL function that
-doesn't exist in SQLite (`DATE_FORMAT` → `strftime`), a column referenced through the wrong alias. What it
-can't fix is the expensive kind — the four remaining failures:
+Two layers, two different kinds of mistake:
 
-- `WHERE active = 'Y'` — the column is `0/1`; the model guessed a value and the query "worked", returning 0.
-- `payment.store_id`, `city.country`, `rental.film_id` — columns that *feel* like they should exist but live
-  one join away (`payment → staff → store`, `city → country`, `rental → inventory → film`). The repair loop
-  keeps guessing other wrong names.
-- A join on `film.film_id = payment.rental_id` that runs fine and returns a confident, wrong number.
+- **The repair loop** fixes the cheap kind — a MySQL function that doesn't exist in SQLite
+  (`DATE_FORMAT` → `strftime`), a column referenced through the wrong alias. Anything that produces an error
+  message. +5 points for ~70 ms.
+- **Schema hints** fix the expensive kind — the mistakes that *don't* error. `WHERE active = 'Y'` ran fine and
+  returned 0; `film.film_id = payment.rental_id` ran fine and returned a confident wrong number;
+  `city.country` and `rental.film_id` sent the repair loop guessing column names for three rounds. Telling
+  the model the join paths and the real values of `active` removed all of them. +7.5 points, and slightly
+  *faster* on average because fewer repairs run.
 
-None of these produce an error message worth repairing from, which is exactly why they survive. The next
-two things to try are giving the model what it's missing: the foreign-key paths as an explicit join graph,
-and sample values for low-cardinality columns (`active ∈ {0, 1}`).
+The one that survives everything is "total revenue per store": the answer needs `payment → staff → store`,
+two hops through a table the question never mentions, and the model reaches for `payment.store_id` every
+time. A few-shot example of a similar query is the obvious next thing to try.
+
+**Code model vs general model**, same best configuration: `qwen2.5:7b` gets 0.925 (3 failures, 0.95 s)
+against the coder's 0.975. The general model still guesses `active = 'Y'` even with the value list in
+front of it, and writes `address.city` — the same "one join away" mistake the coder had stopped making.
 
 The first eval run also caught two bugs in my own harness: my prompt said "add LIMIT 50", so the model
 added `LIMIT 50` to *"the 5 most expensive films"*; and my 50-row output cap failed every question with more
@@ -102,13 +117,12 @@ than 50 correct rows. Eval sets test the tester first.
 pytest
 ```
 
-25 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
+26 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
 on the real database, the graph with a fake model (happy path, repair after an error, repair after a guard
 rejection, giving up), result comparison, the API.
 
 ## What's next
 
-- Join graph + sample values in the prompt (target: the four failures above)
 - Few-shot memory: approved (question, SQL) pairs retrieved as examples
 - Schema retrieval for databases too large to put in the prompt
 - Clarification turn for ambiguous questions instead of guessing

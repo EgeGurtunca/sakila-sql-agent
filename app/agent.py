@@ -105,4 +105,4 @@ _graph = None
 def ask(question: str, schema: str | None = None) -> AgentState:
     global _graph
     _graph = _graph or build()
-    return _graph.invoke({"question": question, "schema": schema or db.schema_ddl(), "trace": []})
+    return _graph.invoke({"question": question, "schema": schema or db.schema_text(), "trace": []})
