@@ -1,5 +1,7 @@
 # sakila-sql-agent
 
+![tests](https://github.com/EgeGurtunca/sakila-sql-agent/actions/workflows/test.yml/badge.svg)
+
 Ask a question about the Sakila film-rental database in plain English or Turkish; the agent writes SQL, runs
 it against a read-only copy, reads the error if it got something wrong, fixes it, and hands you the table and
 a one-sentence answer. Fully local — Ollama, no API keys.
