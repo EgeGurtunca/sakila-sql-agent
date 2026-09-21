@@ -1,7 +1,8 @@
 """Execution accuracy: does the agent's query return the same rows as the gold query?
 
-Run: python -m eval.run_eval [--repairs 0,3] [--hints 0,1] [--ids 1,2,3]
-Every (hints, repairs) pair is one configuration; results go to eval/results/<date>.json.
+Run: python -m eval.run_eval [--repairs 0,3] [--hints 0,1] [--fewshot 0,3] [--ids 1,2,3]
+Every (fewshot, hints, repairs) combination is one configuration; results go to eval/results/<date>.json.
+The example bank (data/examples.jsonl) is hand-written and disjoint from the eval questions.
 """
 import argparse
 import json
@@ -36,6 +37,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repairs", default="0,3", help="comma-separated MAX_REPAIRS values to compare")
     ap.add_argument("--hints", default="1", help="comma-separated 0/1: run with schema hints off/on")
+    ap.add_argument("--fewshot", default=str(config.FEW_SHOT), help="comma-separated example counts (0 disables)")
     ap.add_argument("--ids", default="", help="only these question ids")
     args = ap.parse_args()
     llm.require_ollama()
@@ -45,11 +47,11 @@ def main() -> None:
         keep = {int(x) for x in args.ids.split(",")}
         qs = [q for q in qs if q["id"] in keep]
     results, failures = {}, {}
-    configs = [(int(h), int(r)) for h in args.hints.split(",") for r in args.repairs.split(",")]
-    for hints_on, repairs in configs:
-        config.SCHEMA_HINTS, config.MAX_REPAIRS = bool(hints_on), repairs
+    configs = [(int(f_), int(h), int(r)) for f_ in args.fewshot.split(",") for h in args.hints.split(",") for r in args.repairs.split(",")]
+    for fewshot, hints_on, repairs in configs:
+        config.FEW_SHOT, config.SCHEMA_HINTS, config.MAX_REPAIRS = fewshot, bool(hints_on), repairs
         schema = db.schema_text()
-        key = f"repairs={repairs}, hints={'on' if hints_on else 'off'}"
+        key = f"repairs={repairs}, hints={'on' if hints_on else 'off'}, fewshot={fewshot}"
         correct, attempts, latency, gave_up = 0, 0, 0.0, 0
         failures[key] = []
         for q in qs:

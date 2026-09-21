@@ -43,7 +43,9 @@
   .a.err { color: var(--bad); }
   pre.sql { margin: 0; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 8px;
             font: 13px/1.5 var(--mono); white-space: pre-wrap; overflow-x: auto; }
-  .meta { font: 12px var(--mono); color: var(--muted); margin: 8px 0 12px; }
+  .meta { font: 12px var(--mono); color: var(--muted); margin: 8px 0 12px; display: flex; gap: 12px; align-items: center; }
+  .meta button { font: 12px var(--mono); color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+  .meta button:disabled { color: var(--muted); cursor: default; }
   .wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
   table { border-collapse: collapse; font: 13px var(--sans); min-width: 100%; }
   th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -111,11 +113,19 @@ function render(question, b) {
     <p class="q">${esc(question)}</p>
     <p class="a ${failed ? "err" : ""}">${failed ? "Couldn't produce a working query: " + esc(b.error) : esc(b.answer)}</p>
     ${b.sql ? `<pre class="sql">${esc(b.sql)}</pre>` : ""}
-    <p class="meta">${b.latency_ms} ms · ${b.attempts} repair${b.attempts === 1 ? "" : "s"} · ${b.rows.length} row${b.rows.length === 1 ? "" : "s"}${b.truncated ? " (truncated)" : ""}</p>
+    <p class="meta"><span>${b.latency_ms} ms · ${b.attempts} repair${b.attempts === 1 ? "" : "s"} · ${b.rows.length} row${b.rows.length === 1 ? "" : "s"}${b.truncated ? " (truncated)" : ""}</span>${
+      failed ? "" : `<button type="button" class="approve" data-q="${esc(question)}" data-sql="${esc(b.sql)}" title="Remember this as a correct example">✓ correct</button>`}</p>
     ${table(b.columns, b.rows)}
     <details><summary>trace (${b.trace.length} steps)</summary>${trace(b.trace)}</details>
   </div>`;
 }
+
+$("stream").addEventListener("click", async e => {
+  const btn = e.target.closest(".approve"); if (!btn) return;
+  btn.disabled = true;
+  const r = await fetch("/approve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: btn.dataset.q, sql: btn.dataset.sql }) });
+  btn.textContent = r.ok ? `saved · ${(await r.json()).bank_size} examples` : "couldn't save";
+});
 
 $("f").addEventListener("submit", async e => {
   e.preventDefault();

@@ -10,7 +10,7 @@ from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from app import config, db, guard, llm, prompts
+from app import config, db, examples, guard, llm, prompts
 
 
 class AgentState(TypedDict, total=False):
@@ -32,8 +32,10 @@ def _log(state: AgentState, step: str, **info) -> list[dict]:
 
 
 def generate(state: AgentState) -> AgentState:
-    sql = llm.generate(prompts.GENERATE.format(schema=state["schema"], rules=prompts.RULES, question=state["question"]))
-    return {"sql": sql, "attempts": 0, "trace": _log(state, "generate", sql=sql)}
+    shots = examples.similar(state["question"], examples.load(), k=config.FEW_SHOT) if config.FEW_SHOT else []
+    sql = llm.generate(prompts.GENERATE.format(schema=state["schema"], rules=prompts.RULES, question=state["question"],
+                                               examples=examples.format_block(shots)))
+    return {"sql": sql, "attempts": 0, "trace": _log(state, "generate", sql=sql, examples=[e["question"] for e in shots])}
 
 
 def repair(state: AgentState) -> AgentState:

@@ -15,7 +15,7 @@ SCHEMA:
 
 {rules}
 
-Question: {question}
+{examples}Question: {question}
 SQL:"""
 
 REPAIR = """Your previous SQL failed. Fix it. Return only the corrected query.

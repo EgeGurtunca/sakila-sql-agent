@@ -2,11 +2,11 @@
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from app import agent, config, db, llm
+from app import agent, config, db, examples, guard, llm
 
 schema = ""
 
@@ -53,6 +53,22 @@ def ask(req: AskRequest) -> AskResponse:
         trace=out.get("trace", []),
         latency_ms=int((time.perf_counter() - t0) * 1000),
     )
+
+
+class ApproveRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+    sql: str = Field(min_length=6, max_length=4000)
+
+
+@app.post("/approve")
+def approve(req: ApproveRequest) -> dict:
+    """The user says this answer was right: remember the (question, sql) pair as a future example."""
+    try:
+        sql = guard.check(req.sql)  # never bank anything the guard wouldn't run
+    except guard.GuardError as e:
+        raise HTTPException(400, str(e))
+    examples.add(req.question, sql)
+    return {"ok": True, "bank_size": len(examples.load())}
 
 
 @app.get("/schema", response_class=PlainTextResponse)

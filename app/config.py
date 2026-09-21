@@ -15,3 +15,5 @@ MAX_REPAIRS = int(os.getenv("MAX_REPAIRS", "3"))  # how many times the agent may
 ROW_LIMIT = 200  # rows returned to the user (appended as LIMIT when the query has none)
 TIMEOUT_S = 5.0  # a single query may not run longer than this
 SCHEMA_HINTS = os.getenv("SCHEMA_HINTS", "1") == "1"  # add join paths + enum-like values to the prompt
+FEW_SHOT = int(os.getenv("FEW_SHOT", "3"))  # similar approved examples shown to the model; 0 disables
+EXAMPLES_PATH = Path(os.getenv("EXAMPLES_PATH", ROOT / "data" / "examples.jsonl"))

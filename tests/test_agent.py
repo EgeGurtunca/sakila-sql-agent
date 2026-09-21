@@ -1,3 +1,5 @@
+import json
+
 from app import agent, config
 
 
@@ -38,3 +40,13 @@ def test_gives_up_after_max_repairs(monkeypatch):
     fake_llm(monkeypatch, ["SELECT nope FROM film"] * 3)
     out = agent.ask("x")
     assert out["answer"] is None and out["attempts"] == 2 and out["trace"][-1]["step"] == "give_up"
+
+
+def test_generate_puts_similar_examples_in_prompt(monkeypatch, tmp_path):
+    p = tmp_path / "ex.jsonl"
+    p.write_text(json.dumps({"question": "How many films are rated R?", "sql": "SELECT count(*) FROM film WHERE rating = 'R'"}) + "\n", encoding="utf-8")
+    monkeypatch.setattr(config, "EXAMPLES_PATH", p)
+    calls = fake_llm(monkeypatch, ["SELECT count(*) FROM film WHERE rating = 'PG'", "ok"])
+    out = agent.ask("How many films are rated PG?")
+    assert "Examples of correct queries" in calls[0] and "rating = 'R'" in calls[0]
+    assert out["trace"][0]["examples"] == ["How many films are rated R?"]
