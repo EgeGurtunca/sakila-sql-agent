@@ -87,15 +87,17 @@ is meaningless (there are a hundred correct spellings of most queries). So: 40 h
 gold SQL, run both, compare result sets as order-insensitive multisets.
 
 ```bash
-python -m eval.run_eval --repairs 0,3 --hints 0,1
+python -m eval.run_eval --repairs 0,3 --hints 0,1 --fewshot 0,3
 ```
 
-| schema hints | repairs | execution accuracy | gave up | mean repairs | mean latency |
-|---|---|---|---|---|---|
-| off | 0 | 0.850 | 4 | 0.00 | 0.81 s |
-| off | 3 | 0.900 | 2 | 0.20 | 0.85 s |
-| on | 0 | 0.925 | 3 | 0.00 | 0.73 s |
-| on | 3 | **0.975** | 1 | 0.12 | 0.84 s |
+| schema hints | few-shot | repairs | execution accuracy | gave up | mean repairs | mean latency |
+|---|---|---|---|---|---|---|
+| off | 0 | 0 | 0.850 | 4 | 0.00 | 0.81 s |
+| off | 0 | 3 | 0.900 | 2 | 0.20 | 0.85 s |
+| on | 0 | 0 | 0.900 | 3 | 0.00 | 0.84 s |
+| on | 0 | 3 | 0.950 | 1 | 0.12 | 0.85 s |
+| on | 3 | 0 | **0.950** | 0 | 0.00 | **0.78 s** |
+| on | 3 | 3 | **0.950** | 0 | 0.00 | 0.77 s |
 
 _40 questions (33 English, 7 Turkish): counts, 2–4-table joins, aggregations, date filters, top-N, `LIKE`.
 `qwen2.5-coder:7b`, RTX 4090 laptop. Raw results and every failure in `eval/results/`._
@@ -111,12 +113,36 @@ Two layers, two different kinds of mistake:
   the model the join paths and the real values of `active` removed all of them. +7.5 points, and slightly
   *faster* on average because fewer repairs run.
 
-The one that survives everything is "total revenue per store": the answer needs `payment → staff → store`,
-two hops through a table the question never mentions, and the model reaches for `payment.store_id` every
-time. A few-shot example of a similar query is the obvious next thing to try.
+- **Few-shot examples** get to the same accuracy *without the repair loop*: 0.950 on the first try, no
+  give-ups, and the fastest configuration of the six. With hints alone the agent still needed repairs to
+  reach 0.950.
 
-**Code model vs general model**, same best configuration: `qwen2.5:7b` gets 0.925 (3 failures, 0.95 s)
-against the coder's 0.975. The general model still guesses `active = 'Y'` even with the value list in
+But the few-shot row hides a trade. It fixed the two questions nothing else could (`active`, and the store
+revenue one below), and broke two that had always worked:
+
+- "How many films has PENELOPE GUINESS appeared in?" The bank contains "Which films has NICK WAHLBERG
+  appeared in?" with a `SELECT f.title` answer. The model copied the example's shape and listed titles
+  instead of counting them.
+- "Which language are the films in?" became `SELECT DISTINCT name FROM language`, skipping the join to
+  `film` and listing every language in the table rather than the one the films actually use.
+
+Both are the same failure: an example close enough to be retrieved, different enough to mislead. A bigger
+bank would make near-misses rarer; a "the examples are a style guide, not a template" line in the prompt is
+the cheaper thing to try first.
+
+**The eval set was wrong before the agent was.** "Total revenue per store" was my last remaining failure,
+and when few-shot finally changed the answer I checked it properly: Sakila's own `sales_by_store` view
+attributes revenue through `payment → rental → inventory → store`, not through the staff member who handled
+the rental. My gold query used staff. Those aren't the same thing here (7981 rentals were handled by staff
+from the *other* store), so I had been marking the correct query wrong. The gold is fixed; the lesson is
+that a gold query is an assumption, not a fact.
+
+**Determinism.** `temperature=0` gives the same result three runs in a row, but not across sessions: the
+same configuration scored 0.975 two days earlier, when the (then wrong) gold happened to match. Single-run
+numbers on a 40-question set move by a question or two, so treat everything in this table as ±0.025.
+
+**Code model vs general model**, same configuration (hints on, 3 repairs, no few-shot): `qwen2.5:7b` gets
+0.925 against the coder's 0.950. The general model still guesses `active = 'Y'` even with the value list in
 front of it, and writes `address.city`, the same "one join away" mistake the coder had stopped making.
 
 The first eval run also caught two bugs in my own harness: my prompt said "add LIMIT 50", so the model
