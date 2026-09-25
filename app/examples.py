@@ -48,4 +48,9 @@ def format_block(examples: list[dict]) -> str:
     if not examples:
         return ""
     body = "\n\n".join(f"Question: {ex['question']}\nSQL: {ex['sql']}" for ex in examples)
-    return f"Examples of correct queries on this database:\n\n{body}\n\n"
+    # The first eval with examples showed the model copying an example's SELECT list: "Which films has X
+    # appeared in?" in the bank turned "How many films has Y appeared in?" into a title list. Say what the
+    # examples are for.
+    return ("Examples of correct queries on this database. Use them for join paths and SQLite conventions only;\n"
+            "they answer different questions. Decide what to SELECT (a count, a list, a total, ...) from the\n"
+            f"question below, not from the examples.\n\n{body}\n\n")

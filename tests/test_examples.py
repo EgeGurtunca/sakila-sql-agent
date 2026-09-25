@@ -33,3 +33,8 @@ def test_add_and_load_roundtrip(tmp_path):
 def test_format_block_is_empty_without_examples():
     assert examples.format_block([]) == ""
     assert "Question: q\nSQL: SELECT 1" in examples.format_block([{"question": "q", "sql": "SELECT 1"}])
+
+
+def test_format_block_says_examples_are_not_templates():
+    block = examples.format_block([{"question": "q", "sql": "SELECT 1"}])
+    assert "join paths" in block and "not from the examples" in block
