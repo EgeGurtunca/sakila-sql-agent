@@ -99,8 +99,9 @@ python -m eval.run_eval --repairs 0,3 --hints 0,1 --fewshot 0,3
 | on | 3 | 0 | **0.950** | 0 | 0.00 | **0.78 s** |
 | on | 3 | 3 | **0.950** | 0 | 0.00 | 0.77 s |
 
-_40 questions (33 English, 7 Turkish): counts, 2–4-table joins, aggregations, date filters, top-N, `LIKE`.
-`qwen2.5-coder:7b`, RTX 4090 laptop. Raw results and every failure in `eval/results/`._
+_40 questions (33 English, 7 Turkish): counts, joins across 2 to 4 tables, aggregations, date filters, top-N,
+`LIKE`. `qwen2.5-coder:7b`, RTX 4090 laptop. The runner writes raw results and every failure to `eval/results/`
+(not committed)._
 
 Two layers, two different kinds of mistake:
 
@@ -130,6 +131,11 @@ Both are the same failure: an example close enough to be retrieved, different en
 bank would make near-misses rarer; a "the examples are a style guide, not a template" line in the prompt is
 the cheaper thing to try first.
 
+So I tried it. The examples block now says the examples are there for join paths and SQLite conventions, and
+that what to SELECT comes from the question. Same configuration, one run: **0.975**, with or without repairs.
+The language question is fixed. PENELOPE GUINESS still gets a list of titles instead of a count: the example
+it copies is nearly the same sentence, and one line of instruction doesn't outweigh that for a 7B model.
+
 **The eval set was wrong before the agent was.** "Total revenue per store" was my last remaining failure,
 and when few-shot finally changed the answer I checked it properly: Sakila's own `sales_by_store` view
 attributes revenue through `payment → rental → inventory → store`, not through the staff member who handled
@@ -155,7 +161,7 @@ than 50 correct rows. Eval sets test the tester first.
 pytest
 ```
 
-33 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
+34 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
 on the real database, the graph with a fake model (happy path, repair after an error, repair after a guard
 rejection, giving up), result comparison, the API.
 
