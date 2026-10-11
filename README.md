@@ -151,6 +151,22 @@ numbers on a 40-question set move by a question or two, so treat everything in t
 0.925 against the coder's 0.950. The general model still guesses `active = 'Y'` even with the value list in
 front of it, and writes `address.city`, the same "one join away" mistake the coder had stopped making.
 
+**Newer and bigger is not better here.** In October I ran two newer general models through the best
+configuration (hints on, 3 examples, 3 repairs):
+
+| model | execution accuracy | mean latency |
+|---|---|---|
+| **`qwen2.5-coder:7b`** | **0.975** | **0.8 s** |
+| `gemma4:12b` | 0.950 | 2.2 s |
+| `qwen3.5:9b` | 0.925 | 1.6 s |
+
+Both write `WHERE active = 'Y'` with `'0', '1'` listed right there in the prompt, the silent mistake the value
+list was added for: the code model uses it, the general models fall back on habit. `gemma4:12b` also answers
+"revenue per store" through the store each customer is registered at, a third reasonable reading next to
+Sakila's (the store that rented the film) and the one I got wrong in my first gold query. In my
+[RAG project](https://github.com/EgeGurtunca/bau-mevzuat-rag), reading Turkish legal text, `gemma4:12b` was
+the clear winner; on SQL a 7B model trained for code beats it. The model is a choice per task, not per year.
+
 The first eval run also caught two bugs in my own harness: my prompt said "add LIMIT 50", so the model
 added `LIMIT 50` to *"the 5 most expensive films"*; and my 50-row output cap failed every question with more
 than 50 correct rows. Eval sets test the tester first.

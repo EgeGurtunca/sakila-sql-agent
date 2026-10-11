@@ -46,6 +46,7 @@ def generate(prompt: str, num_predict: int = 400) -> str:
         "model": config.SQL_MODEL,
         "prompt": prompt,
         "stream": False,
+        "think": False,  # reasoning models would spend num_predict on hidden thinking; ignored by the others
         "keep_alive": config.OLLAMA_KEEP_ALIVE,
         "options": {"temperature": 0, "num_ctx": 8192, "num_predict": num_predict},
     }))
