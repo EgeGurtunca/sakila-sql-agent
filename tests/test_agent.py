@@ -28,6 +28,19 @@ def test_repairs_after_sql_error(monkeypatch):
     assert any(t["step"] == "execute" and "error" in t for t in out["trace"])
 
 
+def test_how_many_answered_with_a_list_is_repaired(monkeypatch):
+    fake_llm(monkeypatch, ["SELECT title FROM film", "SELECT count(*) FROM film", "1000 films."])
+    out = agent.ask("How many films are there?")
+    assert out["attempts"] == 1 and out["rows"] == [(1000,)]
+    assert "how many" in out["trace"][1]["error"]
+
+
+def test_grouped_counts_and_lists_pass_the_shape_check():
+    assert agent.shape_error("How many films does each category have?", [("Action", 64), ("Animation", 66)]) == ""
+    assert agent.shape_error("Which films has NICK WAHLBERG appeared in?", [("ADAPTATION HOLES",)]) == ""
+    assert agent.shape_error("Kaç film var?", [("ACADEMY DINOSAUR",)]) != ""
+
+
 def test_guard_failure_is_repaired_too(monkeypatch):
     fake_llm(monkeypatch, ["DROP TABLE film", "SELECT 1 AS one", "One."])
     out = agent.ask("x")

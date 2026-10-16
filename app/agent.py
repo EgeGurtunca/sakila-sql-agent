@@ -5,6 +5,7 @@
                    |          v          v
                    +------- repair <-----+      (at most MAX_REPAIRS times)
 """
+import re
 import sqlite3
 from typing import TypedDict
 
@@ -51,11 +52,23 @@ def check(state: AgentState) -> AgentState:
         return {"error": f"guard: {e}", "trace": _log(state, "guard", error=str(e))}
 
 
+COUNT_QUESTION = re.compile(r"\bhow many\b|\bkaç\b", re.IGNORECASE)
+
+
+def shape_error(question: str, rows: list[tuple]) -> str:
+    """A query can run fine and still answer the wrong kind of question: "how many" answered with a list of titles."""
+    if COUNT_QUESTION.search(question) and rows and not any(isinstance(v, (int, float)) for v in rows[0]):
+        return "the question asks how many, but the result has no number in it: return a count, not a list"
+    return ""
+
+
 def execute(state: AgentState) -> AgentState:
     try:
         res = db.run(state["checked_sql"])
     except (sqlite3.Error, db.QueryTimeout) as e:
         return {"error": str(e), "trace": _log(state, "execute", error=str(e))}
+    if err := shape_error(state["question"], res.rows):
+        return {"error": err, "trace": _log(state, "execute", error=err)}
     return {"columns": res.columns, "rows": res.rows, "truncated": res.truncated, "error": "",
             "trace": _log(state, "execute", rows=len(res.rows))}
 
