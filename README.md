@@ -136,6 +136,10 @@ that what to SELECT comes from the question. Same configuration, one run: **0.97
 The language question is fixed. PENELOPE GUINESS still gets a list of titles instead of a count: the example
 it copies is nearly the same sentence, and one line of instruction doesn't outweigh that for a 7B model.
 
+So the agent now checks the shape of the result in code ([app/agent.py](app/agent.py) `shape_error`): a question
+that asks "how many" (or "kaç") and gets back rows with no number in them goes to the repair loop, with that
+as the error. I wrote it after seeing one failure, so this eval set can't say much about it; numbers to follow.
+
 **The eval set was wrong before the agent was.** "Total revenue per store" was my last remaining failure,
 and when few-shot finally changed the answer I checked it properly: Sakila's own `sales_by_store` view
 attributes revenue through `payment → rental → inventory → store`, not through the staff member who handled
@@ -177,9 +181,9 @@ than 50 correct rows. Eval sets test the tester first.
 pytest
 ```
 
-34 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
+36 tests, no network: the guard (injection-style inputs, fences, comments), read-only and timeout behaviour
 on the real database, the graph with a fake model (happy path, repair after an error, repair after a guard
-rejection, giving up), result comparison, the API.
+rejection, giving up, a "how many" answered with a list), result comparison, the API.
 
 ## What's next
 
