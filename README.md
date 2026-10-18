@@ -138,7 +138,8 @@ it copies is nearly the same sentence, and one line of instruction doesn't outwe
 
 So the agent now checks the shape of the result in code ([app/agent.py](app/agent.py) `shape_error`): a question
 that asks "how many" (or "kaç") and gets back rows with no number in them goes to the repair loop, with that
-as the error. I wrote it after seeing one failure, so this eval set can't say much about it; numbers to follow.
+as the error. On its own question it works: PENELOPE GUINESS now gets a count after one repair. I wrote it
+after seeing that one failure, so the full 40-question run (does it break anything else?) comes next.
 
 **The eval set was wrong before the agent was.** "Total revenue per store" was my last remaining failure,
 and when few-shot finally changed the answer I checked it properly: Sakila's own `sales_by_store` view
