@@ -138,8 +138,13 @@ it copies is nearly the same sentence, and one line of instruction doesn't outwe
 
 So the agent now checks the shape of the result in code ([app/agent.py](app/agent.py) `shape_error`): a question
 that asks "how many" (or "kaç") and gets back rows with no number in them goes to the repair loop, with that
-as the error. On its own question it works: PENELOPE GUINESS now gets a count after one repair. I wrote it
-after seeing that one failure, so the full 40-question run (does it break anything else?) comes next.
+as the error. Full run, same configuration: **40/40** with repairs, and nothing else changed; PENELOPE GUINESS
+gets a count after one repair. Without repairs it stays at 0.975, but the failure is a different kind now:
+the check catches the list, and with no repair allowed the agent gives up instead of answering wrong.
+
+The caveat: I wrote the check after seeing that one failure, and these 40 questions are the set I have been
+tuning against. So 40/40 says the check breaks nothing here, not that the agent is perfect. The real test is
+questions it has never seen.
 
 **The eval set was wrong before the agent was.** "Total revenue per store" was my last remaining failure,
 and when few-shot finally changed the answer I checked it properly: Sakila's own `sales_by_store` view
