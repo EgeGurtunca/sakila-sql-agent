@@ -103,6 +103,10 @@ _40 questions (33 English, 7 Turkish): counts, joins across 2 to 4 tables, aggre
 `LIKE`. `qwen2.5-coder:7b`, RTX 4090 laptop. The runner writes raw results and every failure to `eval/results/`
 (not committed)._
 
+**Where it stands now:** after the two fixes further down (examples as a style guide, and a "how many" shape
+check), hints on with 3 examples scores **40/40 with repairs** and 0.975 without, at about 1 s per question.
+Read the caveat under the shape check before trusting that 40/40.
+
 Two layers, two different kinds of mistake:
 
 - **The repair loop** fixes the cheap kind: a MySQL function that doesn't exist in SQLite
