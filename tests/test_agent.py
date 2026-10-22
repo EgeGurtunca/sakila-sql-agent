@@ -39,6 +39,7 @@ def test_grouped_counts_and_lists_pass_the_shape_check():
     assert agent.shape_error("How many films does each category have?", [("Action", 64), ("Animation", 66)]) == ""
     assert agent.shape_error("Which films has NICK WAHLBERG appeared in?", [("ADAPTATION HOLES",)]) == ""
     assert agent.shape_error("Kaç film var?", [("ACADEMY DINOSAUR",)]) != ""
+    assert agent.shape_error("KAÇ FİLM VAR?", [("ACADEMY DINOSAUR",)]) != ""  # Ç lowercases fine, unlike İ
 
 
 def test_guard_failure_is_repaired_too(monkeypatch):
