@@ -150,6 +150,40 @@ The caveat: I wrote the check after seeing that one failure, and these 40 questi
 tuning against. So 40/40 says the check breaks nothing here, not that the agent is perfect. The real test is
 questions it has never seen.
 
+**So I ran it on questions it has never seen.** `eval/heldout.jsonl` has 19 new questions (5 Turkish):
+anti-joins, subqueries against an average, `HAVING`, date arithmetic, top-N checked for ties. The gold SQL
+was written and frozen before the agent saw any of them, and nothing was tuned afterwards. One run, best
+configuration (hints on, 3 examples):
+
+```bash
+python -m eval.run_eval --set heldout --repairs 0,3
+```
+
+| repairs | execution accuracy | gave up | mean latency |
+|---|---|---|---|
+| 0 | **0.842** (16/19) | 1 | 1.7 s |
+| 3 | 0.789 (15/19) | 1 | 1.3 s |
+
+So 40/40 on the tuned set is about 84% on new questions. The four failures are worth more than the score:
+
+- **SQLite resolves a missing column to the outer query, silently.** "Which city has the store with id 2?"
+  became `... WHERE city_id = (SELECT city_id FROM store WHERE store_id = 2)`. `store` has no `city_id`, so
+  SQLite reads it as the outer `city.city_id`, the subquery is always true, and every city comes back. No
+  error, so the repair loop never sees it. "Films never rented" did the same with `rental.film_id` and
+  returned nothing. This is the "one join away" mistake again, and it is the worst kind: it looks like an
+  answer.
+- **The shape check only catches lists without numbers.** "How many customers have made more than 40
+  rentals?" got the three customers *with their counts*, so a number was present and the check let it
+  through. The check was written for one failure and generalises exactly that far.
+- **MySQL habits survive the repair loop.** "Returned later than the rental duration allows" used
+  `DATE_ADD(... INTERVAL ... DAY)`; three repairs changed the alias, not the function, and it gave up.
+- Repairs on scoring lower than repairs off is the ±1 question of run-to-run noise, not repairs hurting:
+  the extra failure (films never rented) happened on the first attempt, before any repair.
+
+The cheap fixes are a guard that rejects a correlated reference to a column the inner table lacks, and a
+"how many" check that wants exactly one row. Both would be tuned on these 19 questions, so after them this
+set stops being held out too, and the next number needs new questions again.
+
 **The eval set was wrong before the agent was.** "Total revenue per store" was my last remaining failure,
 and when few-shot finally changed the answer I checked it properly: Sakila's own `sales_by_store` view
 attributes revenue through `payment → rental → inventory → store`, not through the staff member who handled
@@ -205,7 +239,7 @@ rejection, giving up, a "how many" answered with a list), result comparison, the
 ```
 app/        config, llm (Ollama + retry), db (read-only, timeout, hints), guard, prompts, examples, agent (LangGraph), api
 static/     the page: question → SQL → table → trace
-eval/       questions.jsonl (gold SQL), run_eval.py, results/
+eval/       questions.jsonl (gold SQL, tuned against), heldout.jsonl (never tuned against), run_eval.py, results/
 tests/      pytest
 data/       sakila.db, examples.jsonl (few-shot bank)
 ```

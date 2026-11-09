@@ -39,10 +39,13 @@ def main() -> None:
     ap.add_argument("--hints", default="1", help="comma-separated 0/1: run with schema hints off/on")
     ap.add_argument("--fewshot", default=str(config.FEW_SHOT), help="comma-separated example counts (0 disables)")
     ap.add_argument("--ids", default="", help="only these question ids")
+    ap.add_argument("--set", default="questions", help="questions (the tuned 40) or heldout (never tuned against)")
     args = ap.parse_args()
-    llm.require_ollama()
-    with open(config.ROOT / "eval" / "questions.jsonl", encoding="utf-8") as f:
+    with open(config.ROOT / "eval" / f"{args.set}.jsonl", encoding="utf-8") as f:
         qs = [json.loads(line) for line in f if line.strip()]
+    if missing := [q["id"] for q in qs if not q["gold_sql"].strip()]:
+        raise SystemExit(f"no gold SQL yet for ids {missing}: write it before the first run, not after")
+    llm.require_ollama()
     if args.ids:
         keep = {int(x) for x in args.ids.split(",")}
         qs = [q for q in qs if q["id"] in keep]
@@ -74,7 +77,7 @@ def main() -> None:
     print("\n| config | execution accuracy | gave up | mean repairs | mean latency |\n|---|---|---|---|---|")
     for k, m in results.items():
         print(f"| {k} | {m['execution_accuracy']} | {m['gave_up']} | {m['mean_attempts']} | {m['mean_latency_s']} s |")
-    out = config.ROOT / "eval" / "results" / f"{date.today()}.json"
+    out = config.ROOT / "eval" / "results" / f"{date.today()}-{args.set}.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps({"n": len(qs), "model": config.SQL_MODEL, "results": results,
                                "failures": failures}, indent=2, default=str), encoding="utf-8")
